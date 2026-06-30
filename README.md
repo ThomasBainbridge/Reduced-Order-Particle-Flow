@@ -1,6 +1,6 @@
 # Reduced-Order Forecasting of Particle-Laden Flow Evolution
 
-![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/ThomasBainbridge/Reduced-Order-Particle-Flow/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
@@ -10,7 +10,6 @@ Eulerian concentration fields, and trains reduced-order PyTorch models to
 **reconstruct and forecast** the concentration-field evolution.
 
 > **Full results write-up with figures: [RESULTS.md](RESULTS.md).**
-> (Replace `OWNER/REPO` in the CI badge above after pushing to GitHub.)
 
 The full intended workflow is:
 

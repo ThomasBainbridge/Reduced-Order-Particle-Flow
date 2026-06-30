@@ -9,6 +9,15 @@ A compact **scientific-machine-learning** testbed that generates a controlled
 Eulerian concentration fields, and trains reduced-order PyTorch models to
 **reconstruct and forecast** the concentration-field evolution.
 
+<p align="center">
+  <img src="docs/gifs/particle_evolution_St1.gif" width="90%"
+       alt="St=1 inertial particles clustering in a Taylor-Green vortex and the resulting concentration field">
+  <br>
+  <em>St&nbsp;=&nbsp;1 inertial particles being centrifuged out of the vortex
+  cores into the strain regions (left) and the resulting 64&times;64
+  concentration field the reduced-order models learn (right).</em>
+</p>
+
 > **Full results write-up with figures: [RESULTS.md](RESULTS.md).**
 
 The full intended workflow is:
@@ -270,9 +279,11 @@ numbers), with the models trained only on seeds 0–3.
 
 ### Physics — preferential concentration
 
-The concentration fields reproduce the textbook inertial-clustering picture
-(`stokes_comparison.png`): particles are centrifuged out of the vortex cores
-and accumulate along the strain regions between cells.
+The concentration fields reproduce the textbook inertial-clustering picture:
+particles are centrifuged out of the vortex cores and accumulate along the
+strain regions between cells.
+
+![Concentration fields vs Stokes number and time](docs/figures/stokes_comparison.png)
 
 - **St = 0.1** — near-tracer; clustering builds up slowly over many turnovers.
 - **St = 1** — **strongest, fastest clustering** (resonant regime); sharp
@@ -280,8 +291,10 @@ and accumulate along the strain regions between cells.
 - **St = 5 / 10** — increasingly inertial: the particles lag and decouple from
   the instantaneous flow, leaving noisier, more diffuse structure.
 
-The clustering diagnostic (`clustering_diagnostics.png`) quantifies this as the
-growth of spatial concentration variance with time.
+Four independent physical diagnostics all confirm **St ≈ 1 as the
+strongest-clustering regime** (clustering index `D` peaks near 1.85):
+
+![Physical diagnostics vs time](docs/figures/physical_diagnostics.png)
 
 ### Reduced-order reconstruction (latent dim = 16)
 
@@ -294,9 +307,12 @@ The two are essentially tied — and both sit near the **histogram shot-noise
 floor** (~`2.2e-4` for ~1.2 particles per cell). Crucially, the energy spectrum
 shows the *raw* fields need ~930 POD modes for 90 % energy: the per-cell Poisson
 noise is high-dimensional and incompressible, so both ROMs instead recover the
-smooth **coherent** clustering structure and discard the noise
-(`ae_reconstruction_panel.png` shows this denoising clearly). This is the key
-physical insight of the reconstruction study.
+smooth **coherent** clustering structure and discard the noise. This is the key
+physical insight of the reconstruction study. On the Gaussian-KDE-denoised
+fields the picture changes — they become nearly low-rank (24 modes → 90 %
+energy) and POD reconstructs the clustering almost perfectly by `r = 16`:
+
+![POD reconstruction vs number of modes (smoothed)](docs/figures/pod_panel_smooth.png)
 
 ### Latent-space forecasting vs persistence
 
@@ -312,14 +328,27 @@ Stokes number** (final-time field RMSE):
 | 10  | `3.19e-4` | `2.39e-4` | **25 %** |
 | **mean** | `4.97e-4` | `4.42e-4` | **11 %** |
 
-`forecast_error_vs_horizon.png` shows the forecaster tracking below persistence
-across medium-to-long horizons, with **St = 1 the hardest regime** (most dynamic
-field) — consistent with the persistence-baseline analysis. For very short
-horizons persistence wins, since the forecaster inevitably pays the
-autoencoder's reconstruction-floor error while persistence is exact at `t = 0`.
+The forecaster tracks below persistence across medium-to-long horizons, with
+**St = 1 the hardest regime** (most dynamic field). On the denoised data, a
+**Stokes-conditioned, multi-step-trained** forecaster does substantially better
+— roughly **halving** the persistence error at long horizons:
 
-> Figures and GIFs are git-ignored (they regenerate from the scripts in
-> minutes); force-add a few showcase images with `git add -f figures/<name>`.
+![Latent forecast vs persistence (conditioned, smoothed)](docs/figures/forecast_smooth_conditioned.png)
+
+Decoding the recursively-forecast latent states back to fields gives a
+predicted movie of the concentration evolution alongside the truth:
+
+<p align="center">
+  <img src="docs/gifs/forecast_vs_true_St1.gif" width="80%"
+       alt="True vs latent-forecast concentration evolution at St=1">
+  <br>
+  <em>Truth (left) vs the latent-space forecast (right), St&nbsp;=&nbsp;1,
+  rolled out recursively over the full horizon on the held-out seed.</em>
+</p>
+
+> All figures/GIFs regenerate from the scripts in minutes; a curated subset is
+> committed under `docs/` so the README and [RESULTS.md](RESULTS.md) render on
+> GitHub. The full-resolution outputs land in `figures/` (git-ignored).
 
 ---
 

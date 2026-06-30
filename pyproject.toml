@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ropf"
+version = "0.1.0"
+description = "Reduced-order forecasting of particle-laden flow evolution with PyTorch."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Thomas Bainbridge" }]
+keywords = [
+    "computational-fluid-dynamics",
+    "scientific-machine-learning",
+    "reduced-order-modelling",
+    "inertial-particles",
+    "pytorch",
+]
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.8",
+    "matplotlib>=3.5",
+    "pillow>=9.0",
+]
+
+[project.optional-dependencies]
+# Needed only for the machine-learning stages (autoencoder / forecaster).
+ml = ["torch>=2.0"]
+# Optional HDF5 dataset backend.
+hdf5 = ["h5py>=3.0"]
+dev = ["pytest>=6.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

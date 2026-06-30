@@ -1,0 +1,40 @@
+# --- Generated data & artefacts ------------------------------------------
+# Datasets are reproducible from the scripts; do not commit them.
+data/
+*.npz
+*.h5
+*.hdf5
+
+# Figures/GIFs are regenerable. Keep the directory but ignore its contents;
+# a few small showcase images can be force-added with `git add -f`.
+figures/*
+!figures/.gitkeep
+
+# Trained models / checkpoints (later ML milestones)
+checkpoints/
+*.pt
+*.pth
+runs/
+lightning_logs/
+
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Environments ---------------------------------------------------------
+.venv/
+venv/
+env/
+.python-version
+
+# --- Editors / OS ---------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+*.swp

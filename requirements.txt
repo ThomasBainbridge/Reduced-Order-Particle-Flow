@@ -1,0 +1,16 @@
+# Core dependencies for the physics + dataset-generation pipeline
+# (Milestone 1). These alone are enough to reproduce every figure and GIF.
+numpy>=1.21
+scipy>=1.8
+matplotlib>=3.5
+pillow>=9.0
+
+# --- Machine-learning stages (autoencoder, latent forecaster) -------------
+# Uncomment when working on the ML milestones.
+# torch>=2.0
+
+# --- Optional HDF5 dataset backend ---------------------------------------
+# h5py>=3.0
+
+# --- Development ----------------------------------------------------------
+# pytest>=6.0

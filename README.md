@@ -18,6 +18,7 @@ Eulerian concentration fields, and trains reduced-order PyTorch models to
   concentration field the reduced-order models learn (right).</em>
 </p>
 
+> **Two-page summary for a quick read: [REPORT.md](REPORT.md).**
 > **Full results write-up with figures: [RESULTS.md](RESULTS.md).**
 
 The full intended workflow is:
@@ -45,8 +46,7 @@ stretch work: a **Neural-ODE** latent forecaster, **Stokes-conditioned** and
 **multi-step (curriculum)** training, **held-out-Stokes-number** generalisation,
 physical-diagnostics analysis, a **Gaussian-KDE** denoised field option, and a
 divergence-free **multi-mode Fourier** carrier flow. Headline numbers are in
-[Results](#results) / [RESULTS.md](RESULTS.md); breakdown in the
-[roadmap](#roadmap).
+[Results](#results) / [RESULTS.md](RESULTS.md).
 
 ---
 
@@ -203,6 +203,18 @@ individual particles**.
 
 ## Quickstart
 
+**One command** (after installing dependencies) runs the whole pipeline — see
+all targets with `make help`:
+
+```bash
+make env        # install deps (incl. CPU PyTorch)
+make smoke      # fast end-to-end sanity check (~1 s)
+make all        # full pipeline: data -> figures -> baselines -> AE -> forecaster
+make fourier    # the linear-vs-nonlinear ROM comparison (RESULTS sec 5.1)
+```
+
+The explicit per-stage commands the `make` targets wrap:
+
 ```bash
 # 1. Environment (Python ≥ 3.9)
 python -m venv .venv && source .venv/bin/activate
@@ -352,34 +364,10 @@ predicted movie of the concentration evolution alongside the truth:
 
 ---
 
-## Roadmap
+## Future work
 
-The physics dataset and every ML stage are implemented and run end-to-end:
-
-- [x] **M1 — Physics & data:** carrier flow, inertial particles, periodic BCs,
-      concentration fields, dataset, comparison figures, GIFs, tests.
-- [x] **M2 — Baselines:** persistence (`c_hat(t+1) = c(t)`) and a **POD/PCA**
-      reduced-order reconstruction with energy spectrum and error-vs-modes.
-- [x] **M3 — Convolutional autoencoder:** `c_t -> z_t -> c_hat_t`, latent dim 16;
-      reconstruction RMSE vs epoch, reconstruction panel, comparison to POD.
-- [x] **M4 — Latent forecaster:** residual MLP `z_{t+1} = z_t + f(z_t)` trained
-      on the frozen latent space; recursive multi-step roll-out; forecast error
-      vs horizon and per Stokes number, against the persistence baseline.
-
-**Stretch — implemented and run:**
-- [x] **Stokes-conditioned** forecasting `z_{t+1} = f(z_t, St)` (`--conditioned`).
-- [x] **Neural-ODE** latent forecaster `dz/dt = f(z, St)` (`--model ode`) — the
-      direct UDE analogue; needs conditioning + multi-step training to be stable.
-- [x] **Multi-step (curriculum)** training (`--rollout k`).
-- [x] **Physical diagnostics**: clustering index, spatial entropy, peak
-      concentration, field variance (`run_diagnostics.py`), incl. whether the
-      forecast preserves the clustering index.
-- [x] **Gaussian-KDE denoising** of the field (`--smoothing`) — 3× lower floor.
-- [x] **Held-out-Stokes-number** generalisation split (`--test-stokes`).
-- [x] **Multi-mode Fourier** divergence-free carrier flow (`--flow-type fourier`).
-
-**Remaining ideas:** a GRU latent forecaster, a nonlinear-ROM win on the Fourier
-flow (where the fields are genuinely multiscale), and two-way coupling.
+- A **GRU latent forecaster** for longer-memory temporal dynamics.
+- **Two-way particle–flow coupling** (particle feedback on the carrier flow).
 
 ---
 

@@ -75,17 +75,17 @@ regression).
 An unsteady Taylor–Green-type vortex on the periodic square
 `[0, 2π] × [0, 2π]`:
 
-```
-u_x(x, y, t) =  A(t) · sin(x) · cos(y)
-u_y(x, y, t) = -A(t) · cos(x) · sin(y)
-A(t)         = 1 + 0.25 · sin(ω t),     ω = 1
-```
+$$
+\begin{aligned}
+u_x(x,y,t) &= A(t)\,\sin x \cos y \\
+u_y(x,y,t) &= -A(t)\,\cos x \sin y \\
+A(t) &= 1 + 0.25\,\sin(\omega t), \quad \omega = 1
+\end{aligned}
+$$
 
 This field is smooth, `2π`-periodic, and analytically incompressible:
 
-```
-∂u_x/∂x + ∂u_y/∂y = A cos x cos y − A cos x cos y ≡ 0
-```
+$$\frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y} = A\cos x\cos y - A\cos x\cos y \equiv 0$$
 
 so no CFD solver is required — the velocity is evaluated analytically at each
 particle location. The time-dependent amplitude `A(t)` makes the flow
@@ -95,17 +95,12 @@ particle location. The time-dependent amplitude `A(t)` makes the flow
 
 Each particle obeys the linear equation of motion
 
-```
-dx_p/dt = v_p
-dv_p/dt = ( u(x_p, t) − v_p ) / τ_p
-```
+$$\frac{d\mathbf{x}_p}{dt} = \mathbf{v}_p, \qquad \frac{d\mathbf{v}_p}{dt} = \frac{\mathbf{u}(\mathbf{x}_p, t) - \mathbf{v}_p}{\tau_p}$$
 
 with particle response time `τ_p`. Using a flow time scale `τ_f = 1`, the
 **Stokes number** is simply
 
-```
-St = τ_p / τ_f = τ_p
-```
+$$\mathrm{St} = \frac{\tau_p}{\tau_f} = \tau_p$$
 
 | Stokes number | Behaviour |
 |---|---|

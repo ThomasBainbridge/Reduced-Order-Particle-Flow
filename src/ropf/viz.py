@@ -50,7 +50,8 @@ def plot_stokes_comparison(
 
     nrows, ncols = len(unique_st), len(t_idx)
     fig, axes = plt.subplots(
-        nrows, ncols, figsize=(2.6 * ncols, 2.6 * nrows), squeeze=False
+        nrows, ncols, figsize=(2.8 * ncols, 2.6 * nrows), squeeze=False,
+        constrained_layout=True,
     )
 
     for r, St in enumerate(unique_st):
@@ -60,7 +61,7 @@ def plot_stokes_comparison(
         vmax = np.percentile(row_fields, 99.5) or row_fields.max()
         for c, ti in enumerate(t_idx):
             ax = axes[r][c]
-            ax.imshow(
+            im = ax.imshow(
                 conc[case, ti, 0],
                 origin="lower",
                 extent=_field_extent(L),
@@ -74,13 +75,17 @@ def plot_stokes_comparison(
                 ax.set_title(f"t = {times[ti]:.1f}", fontsize=11)
             if c == 0:
                 ax.set_ylabel(f"St = {St:g}", fontsize=11)
+        # One colourbar per row: the colour scale is normalised per Stokes row,
+        # so each row needs its own key (dark = empty, bright = clustered).
+        cbar = fig.colorbar(im, ax=list(axes[r]), fraction=0.046, pad=0.02)
+        cbar.set_label("concentration", fontsize=9)
+        cbar.ax.tick_params(labelsize=8)
 
     fig.suptitle(
         "Particle concentration fields vs Stokes number (seed "
         f"{seed})",
         fontsize=13,
     )
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
     return fig
 
 
@@ -138,11 +143,12 @@ def plot_pod_reconstruction_panel(
     vmax = np.percentile(truth, 99.5) or truth.max()
 
     ncols = len(ranks) + 1
-    fig, axes = plt.subplots(1, ncols, figsize=(2.5 * ncols, 2.8), squeeze=False)
+    fig, axes = plt.subplots(1, ncols, figsize=(2.5 * ncols, 2.8), squeeze=False,
+                             constrained_layout=True)
     axes = axes[0]
 
-    axes[0].imshow(truth, origin="lower", extent=[0, L, 0, L], cmap=cmap,
-                   vmin=0, vmax=vmax)
+    im = axes[0].imshow(truth, origin="lower", extent=[0, L, 0, L], cmap=cmap,
+                        vmin=0, vmax=vmax)
     axes[0].set_title("truth")
     for ax, r in zip(axes[1:], ranks):
         recon = pod.reconstruct(true_field_flat, r).reshape(ny, nx)
@@ -153,8 +159,10 @@ def plot_pod_reconstruction_panel(
         ax.set_xticks([])
         ax.set_yticks([])
 
+    cbar = fig.colorbar(im, ax=list(axes), fraction=0.046, pad=0.02)
+    cbar.set_label("concentration", fontsize=9)
+    cbar.ax.tick_params(labelsize=8)
     fig.suptitle("POD reconstruction vs number of modes", fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
     return fig
 
 
@@ -215,6 +223,9 @@ def animate_case(
     ax_c.set_title("concentration")
     ax_c.set_xticks([])
     ax_c.set_yticks([])
+    cbar = fig.colorbar(im, ax=ax_c, fraction=0.046, pad=0.04)
+    cbar.set_label("concentration", fontsize=9)
+    cbar.ax.tick_params(labelsize=8)
 
     suptitle = fig.suptitle("", fontsize=12)
 

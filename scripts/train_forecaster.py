@@ -205,6 +205,9 @@ def _make_forecast_gif(path, truth, pred, times, stokes, fps=20):
     axt.set_title("truth"); axp.set_title("latent forecast")
     for ax in (axt, axp):
         ax.set_xticks([]); ax.set_yticks([])
+    cbar = fig.colorbar(im_p, ax=(axt, axp), fraction=0.046, pad=0.02)
+    cbar.set_label("concentration", fontsize=9)
+    cbar.ax.tick_params(labelsize=8)
     sup = fig.suptitle("")
 
     def update(k):

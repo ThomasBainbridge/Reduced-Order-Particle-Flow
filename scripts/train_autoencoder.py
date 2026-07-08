@@ -106,18 +106,23 @@ def main():
     truth = data.test_flat.numpy()[:, 0]
     var = truth.reshape(truth.shape[0], -1).var(axis=1)
     idx = np.argsort(var)[-4:][::-1]            # 4 most-structured fields
-    fig, axes = plt.subplots(2, len(idx), figsize=(2.6 * len(idx), 5.2))
+    # Shared physical-unit colour scale across every panel, so a single
+    # colourbar is meaningful (truth and reconstruction are directly comparable).
+    vmax = float(np.percentile(truth[idx], 99.5) or truth[idx].max()) * data.scale
+    fig, axes = plt.subplots(2, len(idx), figsize=(2.6 * len(idx), 5.4),
+                             constrained_layout=True)
     for col, i in enumerate(idx):
-        vmax = np.percentile(truth[i], 99.5) or truth[i].max()
         axes[0, col].imshow(truth[i] * data.scale, origin="lower", cmap="inferno",
-                            vmin=0, vmax=vmax * data.scale)
-        axes[1, col].imshow(np.clip(recon[i], 0, None) * data.scale, origin="lower",
-                            cmap="inferno", vmin=0, vmax=vmax * data.scale)
+                            vmin=0, vmax=vmax)
+        im = axes[1, col].imshow(np.clip(recon[i], 0, None) * data.scale,
+                                 origin="lower", cmap="inferno", vmin=0, vmax=vmax)
         for r in (0, 1):
             axes[r, col].set_xticks([]); axes[r, col].set_yticks([])
     axes[0, 0].set_ylabel("truth"); axes[1, 0].set_ylabel("reconstruction")
+    cbar = fig.colorbar(im, ax=axes.ravel().tolist(), fraction=0.046, pad=0.02)
+    cbar.set_label("concentration", fontsize=9)
+    cbar.ax.tick_params(labelsize=8)
     fig.suptitle(f"Autoencoder reconstruction (held-out {data.label})")
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
     f = outdir / "ae_reconstruction_panel.png"; fig.savefig(f, dpi=args.dpi); plt.close(fig)
     print(f"  wrote {f}")
 

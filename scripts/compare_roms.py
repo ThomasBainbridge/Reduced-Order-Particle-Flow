@@ -76,13 +76,13 @@ def main():
                label=f"autoencoder, latent {latent} (nonlinear)")
     ax.plot([latent], [ae_rmse], "s", color="#d62728", ms=9, zorder=5)
 
-    # Mark the POD rank that matches the autoencoder, if any.
+    # Mark the POD rank that matches the autoencoder, if any. The dotted line
+    # locates it; a plain label next to it explains what it means (no arrow).
     if match is not None:
         ax.axvline(match, color="grey", ls=":", lw=1)
-        ax.annotate(f"POD needs ~{match} modes to\nmatch the {latent}-dim AE",
-                    xy=(match, ae_rmse), xytext=(match * 1.6, ae_rmse * 1.05),
-                    fontsize=9, color="dimgrey",
-                    arrowprops=dict(arrowstyle="->", color="grey", lw=1))
+        ax.text(match + 3, ae_rmse * 1.05,
+                f"POD needs ~{match} modes\nto match the {latent}-dim AE",
+                fontsize=9, color="dimgrey", va="bottom", ha="left")
 
     verdict = ("Nonlinear ROM wins at equal latent size"
                if wins else "Linear POD is not beaten at equal latent size")

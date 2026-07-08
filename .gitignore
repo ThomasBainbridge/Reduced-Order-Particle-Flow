@@ -38,3 +38,5 @@ env/
 .idea/
 .DS_Store
 *.swp
+
+.claude/

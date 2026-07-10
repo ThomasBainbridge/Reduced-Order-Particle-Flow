@@ -176,6 +176,8 @@ def train_forecaster_seq(
 
     ``targets`` has shape (M, rollout, L); the model is applied recursively and
     the loss is the mean MSE across all roll-out steps (curriculum-friendly).
+    The model's ``step`` interface threads an optional hidden state through the
+    roll-out (backpropagation-through-time for recurrent forecasters).
     """
     model.to(device)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
@@ -191,10 +193,10 @@ def train_forecaster_seq(
         for z, tgt, sf in loader:
             z, tgt, sf = z.to(device), tgt.to(device), sf.to(device)
             opt.zero_grad()
-            zc = z
+            zc, hc = z, None
             loss = 0.0
             for k in range(rollout):
-                zc = model(zc, sf if model.conditioned else None)
+                zc, hc = model.step(zc, sf if model.conditioned else None, hc)
                 loss = loss + loss_fn(zc, tgt[:, k])
             loss = loss / rollout
             loss.backward()
@@ -220,12 +222,14 @@ def recursive_forecast(
     """Roll the latent map forward ``n_steps`` from initial latents ``z0``.
 
     ``z0`` has shape (B, L); returns (B, n_steps + 1, L) including the start.
+    A recurrent forecaster's hidden state is carried across the whole roll-out.
     """
     model.eval().to(device)
     z = z0.to(device)
     out = [z]
     sf = st_feat.to(device) if st_feat is not None else None
+    h = None
     for _ in range(n_steps):
-        z = model(z, sf if model.conditioned else None)
+        z, h = model.step(z, sf if model.conditioned else None, h)
         out.append(z)
     return torch.stack(out, dim=1).cpu()

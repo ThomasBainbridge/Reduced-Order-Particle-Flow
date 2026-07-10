@@ -16,6 +16,7 @@ torch = pytest.importorskip("torch")
 
 from ropf.models import (  # noqa: E402
     ConvAutoencoder,
+    GRUForecaster,
     LatentForecaster,
     NeuralODEForecaster,
 )
@@ -71,6 +72,30 @@ def test_neural_ode_forecaster_shapes_and_rollout():
     # Drop-in compatibility with recursive_forecast.
     roll = recursive_forecast(fc, z, n_steps=4)
     assert roll.shape == (5, 5, 16)
+
+
+def test_gru_forecaster_memory_and_rollout():
+    torch.manual_seed(0)
+    fc = GRUForecaster(latent_dim=16, hidden=32)
+    z = torch.randn(5, 16)
+    out, h = fc.step(z)
+    assert out.shape == (5, 16)
+    assert h.shape == (5, 32)
+
+    # The carried hidden state must change the next prediction (memory).
+    pred_fresh, _ = fc.step(out)
+    pred_memory, _ = fc.step(out, h=h)
+    assert not torch.allclose(pred_fresh, pred_memory)
+
+    # Drop-in compatibility with recursive_forecast (threads the state).
+    roll = recursive_forecast(fc, z, n_steps=4)
+    assert roll.shape == (5, 5, 16)
+
+    fcc = GRUForecaster(latent_dim=16, conditioned=True)
+    st = torch.zeros(5, 1)
+    assert fcc(z, st).shape == (5, 16)
+    with pytest.raises(ValueError):
+        fcc(z)                            # conditioned model needs st_feat
 
 
 def test_make_windows_shapes():

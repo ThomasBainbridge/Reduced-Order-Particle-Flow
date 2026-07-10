@@ -70,8 +70,11 @@ forecasts the field evolution and is rolled out recursively. The best variant â€
 persistence-baseline error**, with a final-time field RMSE of `1.51e-4`
 (50 % below persistence) on the denoised data. A continuous-time **Neural-ODE**
 latent model `dz/dt = f(z, St)` is also competitive (`2.32e-4`) once conditioned
-and multi-step-trained. Persistence only wins at very short horizons or for
-near-stationary regimes.
+and multi-step-trained, and a **GRU** with a hidden memory carried across the
+roll-out (`1.64e-4`, trained on 16-step windows) is the only variant that beats
+persistence in *every* Stokes regime â€” its memory wins the near-stationary
+high-St cases where the memoryless MLP loses. Persistence only wins at very
+short horizons.
 
 ### 4. Generalisation across Stokes number
 

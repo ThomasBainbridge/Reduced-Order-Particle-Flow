@@ -42,7 +42,7 @@ prescribed carrier flow
 **Status:** complete end-to-end and then some — physics & dataset generation
 (M1), persistence + POD baselines (M2), a convolutional autoencoder (M3) and a
 latent-space forecaster (M4) are all implemented, tested, and run; plus the
-stretch work: a **Neural-ODE** latent forecaster, **Stokes-conditioned** and
+stretch work: **Neural-ODE** and **GRU** latent forecasters, **Stokes-conditioned** and
 **multi-step (curriculum)** training, **held-out-Stokes-number** generalisation,
 physical-diagnostics analysis, a **Gaussian-KDE** denoised field option, and a
 divergence-free **multi-mode Fourier** carrier flow. Headline numbers are in
@@ -168,7 +168,7 @@ Generation is fully reproducible from the random seeds.
 │   ├── metrics.py            # RMSE / relative-L2 (shared by baselines & NN)
 │   ├── baselines.py          # persistence + POD/PCA reduced-order model
 │   ├── diagnostics.py        # clustering index, entropy, peak, variance
-│   ├── models.py             # ConvAutoencoder, LatentForecaster, NeuralODE (PyTorch)
+│   ├── models.py             # ConvAutoencoder, LatentForecaster, NeuralODE, GRU (PyTorch)
 │   ├── torch_data.py         # train/test split (seed or Stokes), scaling, tensors
 │   ├── train.py              # training loops + multi-step roll-out utilities
 │   └── viz.py                # comparison figures, diagnostics, GIFs
@@ -179,7 +179,7 @@ Generation is fully reproducible from the random seeds.
 │   ├── run_baselines.py      # M2: persistence + POD baselines
 │   ├── run_diagnostics.py    # physical diagnostics vs time and Stokes number
 │   ├── train_autoencoder.py  # M3: convolutional autoencoder
-│   └── train_forecaster.py   # M4: latent forecaster (MLP/ODE) + evaluation
+│   └── train_forecaster.py   # M4: latent forecaster (MLP/ODE/GRU) + evaluation
 ├── tests/                    # test_physics.py (M1/M2) + test_models.py (M3/M4)
 ├── .github/workflows/ci.yml  # pytest + pipeline smoke test on push/PR
 ├── docs/figures/             # committed showcase figures (for RESULTS.md)
@@ -258,6 +258,10 @@ python scripts/train_forecaster.py  --ckpt checkpoints/ae.pt -i data/smooth.npz 
 # Neural-ODE latent forecaster (UDE-style continuous-time dynamics):
 python scripts/train_forecaster.py  --ckpt checkpoints/ae.pt -i data/smooth.npz \
     --model ode --conditioned --rollout 8 --tag ode
+
+# GRU latent forecaster (hidden memory carried across the roll-out):
+python scripts/train_forecaster.py  --ckpt checkpoints/ae.pt -i data/smooth.npz \
+    --model gru --conditioned --rollout 4 --tag gru
 
 # Hold out an entire Stokes number to test generalisation:
 python scripts/train_autoencoder.py -i data/smooth.npz --test-stokes 5 --ckpt checkpoints/ae5.pt
@@ -342,6 +346,13 @@ The forecaster tracks below persistence across medium-to-long horizons, with
 
 ![Latent forecast vs persistence (conditioned, smoothed)](docs/figures/forecast_smooth_conditioned.png)
 
+A **GRU forecaster** with a hidden memory carried across the roll-out comes in
+close behind (`1.64e-4` vs the MLP's `1.55e-4` at the final horizon) and is the
+only model that beats persistence in **every** Stokes regime — it wins exactly
+at the near-stationary St = 5 and 10, where the memoryless MLP loses. Like the
+Neural-ODE, it needs a long roll-out curriculum (16-step windows) to stay
+stable; the full story is in [RESULTS.md](RESULTS.md#3-latent-space-forecasting-vs-persistence).
+
 Decoding the recursively-forecast latent states back to fields gives a
 predicted movie of the concentration evolution alongside the truth:
 
@@ -361,8 +372,10 @@ predicted movie of the concentration evolution alongside the truth:
 
 ## Future work
 
-- A **GRU latent forecaster** for longer-memory temporal dynamics.
-- **Two-way particle–flow coupling** (particle feedback on the carrier flow).
+- **Two-way particle–flow coupling** (particle feedback on the carrier flow),
+  which first requires solving — not prescribing — the carrier flow.
+- A **DMD baseline** for the forecasting comparison (the linear counterpart of
+  the neural latent-dynamics models, as POD is to the autoencoder).
 
 ---
 

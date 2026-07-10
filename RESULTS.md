@@ -76,6 +76,7 @@ decoded back to fields. Final-time field RMSE on the held-out seed:
 | residual MLP, 1-step | raw | `4.42e-4` | `4.97e-4` | 11 % |
 | **conditioned MLP, rollout-4** | smooth | **`1.51e-4`** | `3.02e-4` | **50 %** |
 | Neural-ODE, conditioned, rollout-8 | smooth | `2.32e-4` | `3.02e-4` | 23 % |
+| GRU, conditioned, rollout-16 | smooth | `1.64e-4` | `3.02e-4` | 46 % |
 
 On the denoised data the **Stokes-conditioned, multi-step-trained MLP** is the
 clear winner — it tracks well below persistence across almost all horizons
@@ -99,6 +100,40 @@ and roughly preserves the clustering index, slightly under-diffusing it:
 
 ![ODE clustering-index preservation](docs/figures/ode_clustering_index.png)
 
+**GRU (longer-memory dynamics).** A gated recurrent forecaster carries a
+hidden memory `h` across the roll-out, so the latent update can depend on the
+trajectory history rather than the current state alone
+(`z_{t+1} = z_t + W h_t`). Like the Neural-ODE, it is **unstable when trained
+short**: on 4-step windows the 200-step roll-out blows the clustering index up
+to `3.9` (vs a true `0.29`) and loses to persistence. The cure is the
+**roll-out curriculum, not capacity** — halving the hidden size changes
+nothing, while lengthening the training windows improves it monotonically
+(rollout 4 → 8 → 16 gives `5.16e-4` → `3.73e-4` → `1.64e-4`), because
+backpropagation-through-time only shapes the memory over horizons the
+training actually visits.
+
+Trained on 16-step windows, the GRU becomes the **only forecaster that beats
+persistence in every Stokes regime** — including the near-stationary St = 5
+and St = 10, where the memoryless MLP loses (per-Stokes final RMSE from this
+comparison's runs; an independent re-run of the MLP lands its mean at
+`1.55e-4`, consistent with the `1.51e-4` above):
+
+| St | conditioned MLP, rollout-4 | GRU, rollout-16 | persistence |
+|---|---|---|---|
+| 0.1 | **`1.74e-4`** | `2.82e-4` | `4.58e-4` |
+| 1   | **`0.95e-4`** | `2.03e-4` | `5.30e-4` |
+| 5   | `2.39e-4` | **`0.95e-4`** | `1.16e-4` |
+| 10  | `1.12e-4` | **`0.74e-4`** | `1.04e-4` |
+| **mean** | **`1.55e-4`** | `1.64e-4` | `3.02e-4` |
+
+The two models are **complementary**: the MLP wins the fast-evolving low-St
+cases (and the overall mean), while the GRU's memory pays off exactly where
+the dynamics are slow and persistence is hardest to beat. The stabilised GRU
+errs on the diffusive side — it slightly over-smooths clustering (final index
+`-0.14` vs `0.29`), the mirror image of the short-rollout blow-up:
+
+![GRU forecast vs persistence](docs/figures/forecast_gru.png)
+
 **An honest limitation — forecasting an unseen Stokes number.** When St = 5 is
 held out *entirely*, the unconditioned forecaster loses to persistence
 (`4.18e-4` vs `1.18e-4`): it cannot extrapolate dynamics to an inertia regime
@@ -114,8 +149,10 @@ conditioning. This cleanly motivates the conditioned model.
   buys a 3× lower floor and makes the fields low-rank, where POD is near-optimal.
 - **Forecasting:** the latent forecaster beats persistence whenever there is
   coherent low-rank structure to predict; the best model (conditioned, rollout-4
-  MLP) halves the persistence error. Persistence only wins at very short
-  horizons or for near-stationary, unseen regimes.
+  MLP) halves the persistence error, and the rollout-16 GRU — close behind on
+  the mean — is the only model ahead of persistence in *every* Stokes regime.
+  Persistence only wins at very short horizons or for near-stationary, unseen
+  regimes.
 - **Generalisation:** the encoder/decoder transfers to an unseen Stokes number;
   the dynamics need conditioning to do the same.
 

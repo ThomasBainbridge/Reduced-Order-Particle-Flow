@@ -10,6 +10,14 @@
   the Stokes number. Recursively applied, it forecasts the field evolution
   entirely in latent space.
 
+* :class:`GRUForecaster` -- a gated recurrent one-step map that additionally
+  carries a hidden memory ``h`` across the roll-out, so the update can depend
+  on the trajectory history rather than the current latent alone.
+
+All forecasters expose ``step(z, st_feat, h) -> (z_next, h_next)``; memoryless
+models simply return ``h_next = None``. The training and roll-out loops in
+:mod:`ropf.train` thread ``h`` through this interface.
+
 The encoder/decoder use stride-2 (transpose-)convolutions, so the spatial
 size halves/doubles cleanly 64 -> 32 -> 16 -> 8 -> 4 and back.
 """
@@ -108,6 +116,9 @@ class LatentForecaster(nn.Module):
             inp = z
         return z + self.net(inp)
 
+    def step(self, z: torch.Tensor, st_feat: torch.Tensor = None, h=None):
+        return self.forward(z, st_feat), None
+
 
 class NeuralODEForecaster(nn.Module):
     """Continuous-time latent dynamics ``dz/dt = f(z [, St])``.
@@ -159,5 +170,53 @@ class NeuralODEForecaster(nn.Module):
             z = z + (h / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
         return z
 
+    def step(self, z: torch.Tensor, st_feat: torch.Tensor = None, h=None):
+        return self.forward(z, st_feat), None
 
-FORECASTERS = {"mlp": LatentForecaster, "ode": NeuralODEForecaster}
+
+class GRUForecaster(nn.Module):
+    """Recurrent one-step latent map with a persistent hidden memory.
+
+    A single :class:`torch.nn.GRUCell` consumes the current latent state (plus
+    the optional Stokes feature) and updates a hidden memory ``h``; a linear
+    head turns the memory into a residual update ``z_{t+1} = z_t + W h``.
+
+    Unlike the memoryless residual MLP, the hidden state threaded through a
+    roll-out lets the update depend on the trajectory history, not just the
+    instantaneous latent -- the longer-memory temporal model. Trained with
+    ``--rollout k > 1`` so backpropagation-through-time can shape the memory;
+    called without ``h`` (plain ``forward``) it reduces to a memoryless map.
+    """
+
+    def __init__(
+        self,
+        latent_dim: int = 16,
+        hidden: int = 128,
+        conditioned: bool = False,
+    ):
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.hidden = hidden
+        self.conditioned = conditioned
+        in_dim = latent_dim + (1 if conditioned else 0)
+        self.cell = nn.GRUCell(in_dim, hidden)
+        self.head = nn.Linear(hidden, latent_dim)
+
+    def step(self, z: torch.Tensor, st_feat: torch.Tensor = None, h=None):
+        if self.conditioned:
+            if st_feat is None:
+                raise ValueError("conditioned forecaster requires st_feat")
+            inp = torch.cat([z, st_feat], dim=-1)
+        else:
+            inp = z
+        if h is None:
+            h = z.new_zeros(z.shape[0], self.hidden)
+        h = self.cell(inp, h)
+        return z + self.head(h), h
+
+    def forward(self, z: torch.Tensor, st_feat: torch.Tensor = None) -> torch.Tensor:
+        return self.step(z, st_feat)[0]
+
+
+FORECASTERS = {"mlp": LatentForecaster, "ode": NeuralODEForecaster,
+               "gru": GRUForecaster}

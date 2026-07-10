@@ -8,9 +8,11 @@ state, decodes back to fields, and compares against the persistence baseline
 as a function of horizon -- including whether the forecast preserves the
 physical clustering index.
 
-Two latent models are available (``--model``):
+Three latent models are available (``--model``):
   * ``mlp`` -- residual MLP  z_{t+1} = z_t + f(z_t)        (default)
   * ``ode`` -- neural ODE    dz/dt = f(z), RK4-integrated  (UDE-style)
+  * ``gru`` -- recurrent map z_{t+1} = z_t + W h_t with a hidden memory h
+    carried across the roll-out (train with ``--rollout k > 1``)
 
 Multi-step (curriculum) training is enabled with ``--rollout k``.
 
@@ -52,7 +54,7 @@ def parse_args():
     p.add_argument("-o", "--outdir", default="figures")
     p.add_argument("--ckpt", default="checkpoints/autoencoder.pt")
     p.add_argument("--fc-ckpt", default="checkpoints/forecaster.pt")
-    p.add_argument("--model", choices=["mlp", "ode"], default="mlp")
+    p.add_argument("--model", choices=["mlp", "ode", "gru"], default="mlp")
     p.add_argument("--rollout", type=int, default=1,
                    help="Training roll-out length (curriculum); 1 = one-step.")
     p.add_argument("--epochs", type=int, default=200)

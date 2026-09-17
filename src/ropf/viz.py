@@ -185,6 +185,7 @@ def animate_case(
     """
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation, PillowWriter
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     from .simulation import simulate_case
 
@@ -223,7 +224,15 @@ def animate_case(
     ax_c.set_title("concentration")
     ax_c.set_xticks([])
     ax_c.set_yticks([])
-    cbar = fig.colorbar(im, ax=ax_c, fraction=0.046, pad=0.04)
+
+    # Give the colourbar its own axes rather than letting it steal width from
+    # ax_c, and reserve an identical (blank) strip beside ax_p. Both panels are
+    # then shrunk by the same amount, so the two squares render the same size.
+    cax = make_axes_locatable(ax_c).append_axes("right", size="4%", pad=0.04)
+    spacer = make_axes_locatable(ax_p).append_axes("right", size="4%", pad=0.04)
+    spacer.set_axis_off()
+
+    cbar = fig.colorbar(im, cax=cax)
     cbar.set_label("concentration", fontsize=9)
     cbar.ax.tick_params(labelsize=8)
 

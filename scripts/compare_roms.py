@@ -76,13 +76,9 @@ def main():
                label=f"autoencoder, latent {latent} (nonlinear)")
     ax.plot([latent], [ae_rmse], "s", color="#d62728", ms=9, zorder=5)
 
-    # Mark the POD rank that matches the autoencoder, if any. The dotted line
-    # locates it; a plain label next to it explains what it means (no arrow).
+    # Mark the POD rank that matches the autoencoder, if any.
     if match is not None:
         ax.axvline(match, color="grey", ls=":", lw=1)
-        ax.text(match + 3, ae_rmse * 1.05,
-                f"POD needs ~{match} modes\nto match the {latent}-dim AE",
-                fontsize=9, color="dimgrey", va="bottom", ha="left")
 
     verdict = ("Nonlinear ROM wins at equal latent size"
                if wins else "Linear POD is not beaten at equal latent size")
@@ -94,11 +90,6 @@ def main():
     ax.set_ylabel("held-out reconstruction RMSE")
     ax.grid(alpha=0.3, which="both")
     ax.legend(loc="upper right")
-    # Verdict + energy context as a footnote box, clear of the title/curve.
-    ax.text(0.02, 0.03,
-            f"{verdict}\nPOD needs {e90} modes for 90% energy",
-            transform=ax.transAxes, fontsize=9, va="bottom", ha="left",
-            bbox=dict(boxstyle="round", fc="white", ec="grey", alpha=0.85))
     fig.tight_layout()
 
     out = pathlib.Path(args.out)
@@ -111,6 +102,7 @@ def main():
     print(f"  equivalent POD rank                : "
           f"{match if match is not None else '>%d' % int(ranks[-1])}")
     print(f"  verdict                            : {verdict}")
+    print(f"  POD modes for 90% energy           : {e90}")
     print(f"  wrote {out}")
 
 

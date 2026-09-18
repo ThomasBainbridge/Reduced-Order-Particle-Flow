@@ -14,7 +14,14 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 import dataclasses as _dc  # noqa: E402
 
-from ropf import SimConfig, concentration_field, simulate_case  # noqa: E402
+from ropf import (  # noqa: E402
+    SimConfig,
+    build_dataset,
+    concentration_field,
+    load_dataset,
+    save_dataset,
+    simulate_case,
+)
 from ropf.carrier_flow import (  # noqa: E402
     RandomFourierFlow,
     TaylorGreenFlow,
@@ -134,6 +141,27 @@ def test_fourier_flow_simulation_runs():
     fields, times, _ = simulate_case(1.0, 0, cfg)
     assert fields.shape == (cfg.n_saves, 1, cfg.ny, cfg.nx)
     assert np.allclose(fields.sum(axis=(1, 2, 3)), 1.0, atol=1e-5)
+
+
+def test_dataset_round_trip_and_metadata():
+    import tempfile
+
+    for flow_type, expected in [("taylor_green", "Taylor-Green"),
+                                ("fourier", "random-Fourier")]:
+        cfg = dataclasses.replace(
+            SimConfig(), flow_type=flow_type, n_particles=200, t_final=0.2,
+            dt=0.05, save_interval=0.1, nx=8, ny=8,
+            stokes_numbers=(1.0,), seeds=(0, 1),
+        )
+        ds = build_dataset(cfg)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "ds.npz"
+            save_dataset(path, ds)
+            loaded = load_dataset(path)
+        assert np.array_equal(loaded["concentration"], ds["concentration"])
+        assert loaded["seed"].tolist() == [0, 1]
+        assert loaded["metadata"]["config"]["flow_type"] == flow_type
+        assert expected in loaded["metadata"]["description"]
 
 
 def test_reproducibility():

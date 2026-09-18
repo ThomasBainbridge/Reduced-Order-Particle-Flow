@@ -14,12 +14,16 @@ Three latent models are available (``--model``):
   * ``gru`` -- recurrent map z_{t+1} = z_t + W h_t with a hidden memory h
     carried across the roll-out (train with ``--rollout k > 1``)
 
-Multi-step (curriculum) training is enabled with ``--rollout k``.
+Multi-step (curriculum) training is enabled with ``--rollout k`` and Stokes
+conditioning with ``--conditioned``. ``--tag`` suffixes every output file
+(figures, JSON, GIF and the default checkpoint path) so runs do not overwrite
+each other.
 
 Example
 -------
-    python scripts/train_forecaster.py --ckpt checkpoints/autoencoder.pt \
-        --model ode --rollout 4 --epochs 200
+    python scripts/train_forecaster.py --ckpt checkpoints/autoencoder_smooth.pt \
+        -i data/particle_concentration_smooth.npz -o figures/smooth \
+        --model gru --conditioned --rollout 16 --tag gru
 """
 
 import _bootstrap  # noqa: F401
@@ -53,7 +57,9 @@ def parse_args():
     p.add_argument("-i", "--input", default="data/particle_concentration.npz")
     p.add_argument("-o", "--outdir", default="figures")
     p.add_argument("--ckpt", default="checkpoints/autoencoder.pt")
-    p.add_argument("--fc-ckpt", default="checkpoints/forecaster.pt")
+    p.add_argument("--fc-ckpt", default=None,
+                   help="Forecaster checkpoint path "
+                        "(default: checkpoints/forecaster[_TAG].pt).")
     p.add_argument("--model", choices=["mlp", "ode", "gru"], default="mlp")
     p.add_argument("--rollout", type=int, default=1,
                    help="Training roll-out length (curriculum); 1 = one-step.")
@@ -81,8 +87,9 @@ def main():
         torch.set_num_threads(args.threads)
     set_seed(args.seed)
     outdir = pathlib.Path(args.outdir); outdir.mkdir(parents=True, exist_ok=True)
-    fc_path = pathlib.Path(args.fc_ckpt); fc_path.parent.mkdir(parents=True, exist_ok=True)
     tag = (f"_{args.tag}" if args.tag else "")
+    fc_path = pathlib.Path(args.fc_ckpt or f"checkpoints/forecaster{tag}.pt")
+    fc_path.parent.mkdir(parents=True, exist_ok=True)
 
     # --- Load autoencoder + reproduce its train/test split -----------
     ck = torch.load(args.ckpt, map_location="cpu", weights_only=False)

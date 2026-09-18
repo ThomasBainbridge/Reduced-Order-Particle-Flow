@@ -21,6 +21,11 @@ import numpy as np
 from .config import SimConfig
 from .simulation import simulate_case
 
+_FLOW_DESCRIPTIONS = {
+    "taylor_green": "Taylor-Green-type",
+    "fourier": "multi-mode random-Fourier",
+}
+
 
 def build_dataset(
     cfg: SimConfig,
@@ -70,7 +75,8 @@ def build_dataset(
     metadata = {
         "description": (
             "Inertial-particle concentration fields in an unsteady "
-            "Taylor-Green-type carrier flow."
+            + _FLOW_DESCRIPTIONS.get(cfg.flow_type, cfg.flow_type)
+            + " carrier flow."
         ),
         "config": cfg.to_dict(),
         "axes": ["case", "time", "channel", "y", "x"],

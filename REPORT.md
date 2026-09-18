@@ -102,6 +102,8 @@ generalises for free and what needs to be told about the regime.
 ```bash
 make env        # install deps (incl. CPU PyTorch)
 make all        # full pipeline: data -> figures -> baselines -> AE -> forecaster
+make smooth     # the conditioned MLP / Neural-ODE / GRU forecasting results
+make holdout    # the unseen-Stokes-number generalisation test
 make fourier    # the linear-vs-nonlinear ROM comparison above
 ```
 

@@ -6,13 +6,21 @@ A controlled scientific-machine-learning testbed:
     -> Eulerian concentration fields -> reduced-order representation
     -> neural reconstruction -> latent forecasting -> error analysis
 
-This package (``ropf``) implements the *physics and dataset-generation*
-stage. The machine-learning stages are built on top of the datasets it
-produces. See the project README for the full roadmap.
+The top-level namespace exposes the NumPy-only physics, dataset, baseline
+and diagnostics API. The PyTorch stages live in :mod:`ropf.models`,
+:mod:`ropf.train` and :mod:`ropf.torch_data`; they are not imported here so
+the physics pipeline works without PyTorch installed.
 """
 
 from .config import SimConfig
-from .carrier_flow import amplitude, taylor_green_velocity, velocity_divergence
+from .carrier_flow import (
+    amplitude,
+    taylor_green_velocity,
+    velocity_divergence,
+    TaylorGreenFlow,
+    RandomFourierFlow,
+    build_flow,
+)
 from .particles import particle_rhs, rk4_step, euler_step, wrap_periodic, STEPPERS
 from .concentration import concentration_field
 from .simulation import simulate_case
@@ -40,6 +48,9 @@ __all__ = [
     "amplitude",
     "taylor_green_velocity",
     "velocity_divergence",
+    "TaylorGreenFlow",
+    "RandomFourierFlow",
+    "build_flow",
     "particle_rhs",
     "rk4_step",
     "euler_step",

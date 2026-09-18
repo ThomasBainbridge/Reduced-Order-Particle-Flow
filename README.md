@@ -91,6 +91,12 @@ so no CFD solver is required — the velocity is evaluated analytically at each
 particle location. The time-dependent amplitude `A(t)` makes the flow
 **unsteady**, giving the particle field a non-trivial, forecastable evolution.
 
+A second, more turbulence-like option (`--flow-type fourier`) sums 8 random
+integer-wavenumber Fourier modes of a streamfunction `ψ`, with the same
+`A(t)` modulation, and takes `u = (∂ψ/∂y, −∂ψ/∂x)`. It is still
+2π-periodic and divergence-free by construction, and produces filamentary,
+multiscale clustering ([RESULTS §5](RESULTS.md#5-a-more-turbulence-like-flow)).
+
 ### Inertial particles (Stokes drag)
 
 Each particle obeys the linear equation of motion
@@ -160,7 +166,7 @@ Generation is fully reproducible from the random seeds.
 .
 ├── src/ropf/                 # installable package ("reduced-order particle flow")
 │   ├── config.py             # SimConfig dataclass: all numerical/physical params
-│   ├── carrier_flow.py       # Taylor–Green velocity + divergence check
+│   ├── carrier_flow.py       # Taylor–Green + multi-mode Fourier flows, divergence check
 │   ├── particles.py          # vectorised RK4/Euler inertial-particle integrators
 │   ├── concentration.py      # Lagrangian → Eulerian histogram binning
 │   ├── simulation.py         # run one (St, seed) case → concentration snapshots
@@ -179,13 +185,16 @@ Generation is fully reproducible from the random seeds.
 │   ├── run_baselines.py      # M2: persistence + POD baselines
 │   ├── run_diagnostics.py    # physical diagnostics vs time and Stokes number
 │   ├── train_autoencoder.py  # M3: convolutional autoencoder
-│   └── train_forecaster.py   # M4: latent forecaster (MLP/ODE/GRU) + evaluation
+│   ├── train_forecaster.py   # M4: latent forecaster (MLP/ODE/GRU) + evaluation
+│   └── compare_roms.py       # linear (POD) vs nonlinear (AE) ROM comparison plot
 ├── tests/                    # test_physics.py (M1/M2) + test_models.py (M3/M4)
-├── .github/workflows/ci.yml  # pytest + pipeline smoke test on push/PR
-├── docs/figures/             # committed showcase figures (for RESULTS.md)
+├── .github/workflows/ci.yml  # pytest + every-stage smoke test on push/PR
+├── docs/figures/, docs/gifs/ # committed showcase figures/GIFs (README, RESULTS)
 ├── data/                     # generated datasets (git-ignored)
 ├── figures/                  # generated figures/GIFs (git-ignored)
 ├── checkpoints/              # trained model weights (git-ignored)
+├── Makefile                  # one-command reproduction of every result
+├── REPORT.md, RESULTS.md     # two-page summary and full results write-up
 ├── pyproject.toml            # packaging + optional [ml]/[hdf5]/[dev] extras
 └── requirements.txt
 ```
@@ -202,9 +211,12 @@ individual particles**.
 all targets with `make help`:
 
 ```bash
-make env        # install deps (incl. CPU PyTorch)
-make smoke      # fast end-to-end sanity check (~1 s)
+make env        # install deps (incl. CPU PyTorch and pytest)
+make test       # unit tests
+make smoke      # every stage on a tiny dataset (~20 s on a laptop CPU)
 make all        # full pipeline: data -> figures -> baselines -> AE -> forecaster
+make smooth     # conditioned MLP / Neural-ODE / GRU forecasters (RESULTS sec 3)
+make holdout    # hold out St = 5 entirely (Stokes generalisation)
 make fourier    # the linear-vs-nonlinear ROM comparison (RESULTS sec 5.1)
 ```
 
@@ -214,8 +226,8 @@ The explicit per-stage commands the `make` targets wrap:
 # 1. Environment (Python ≥ 3.9)
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-# (optional, makes `import ropf` work anywhere)
-pip install -e .
+# (optional, makes `import ropf` work anywhere; [dev] adds pytest)
+pip install -e ".[dev]"
 
 # 2. Sanity-check the physics
 pytest -q                      # or: python tests/test_physics.py
@@ -246,40 +258,54 @@ python scripts/train_forecaster.py --ckpt checkpoints/autoencoder.pt --epochs 20
 
 ### Stretch experiments
 
+These are what `make smooth`, `make holdout` and `make fourier` run:
+
 ```bash
 # Denoised (Gaussian-KDE) dataset -> ~3x lower reconstruction floor:
-python scripts/generate_dataset.py --smoothing 1.0 -o data/smooth.npz
+python scripts/generate_dataset.py --smoothing 1.0 -o data/particle_concentration_smooth.npz
+python scripts/train_autoencoder.py -i data/particle_concentration_smooth.npz \
+    -o figures/smooth --ckpt checkpoints/autoencoder_smooth.pt
 
-# Stokes-conditioned, multi-step-trained forecaster (best result):
-python scripts/train_autoencoder.py -i data/smooth.npz --ckpt checkpoints/ae.pt
-python scripts/train_forecaster.py  --ckpt checkpoints/ae.pt -i data/smooth.npz \
+# Stokes-conditioned, multi-step-trained MLP forecaster (best result):
+python scripts/train_forecaster.py -i data/particle_concentration_smooth.npz \
+    -o figures/smooth --ckpt checkpoints/autoencoder_smooth.pt \
     --conditioned --rollout 4 --tag cond
 
 # Neural-ODE latent forecaster (UDE-style continuous-time dynamics):
-python scripts/train_forecaster.py  --ckpt checkpoints/ae.pt -i data/smooth.npz \
+python scripts/train_forecaster.py -i data/particle_concentration_smooth.npz \
+    -o figures/smooth --ckpt checkpoints/autoencoder_smooth.pt \
     --model ode --conditioned --rollout 8 --tag ode
 
-# GRU latent forecaster (hidden memory carried across the roll-out):
-python scripts/train_forecaster.py  --ckpt checkpoints/ae.pt -i data/smooth.npz \
-    --model gru --conditioned --rollout 4 --tag gru
+# GRU latent forecaster (hidden memory; needs the 16-step roll-out curriculum):
+python scripts/train_forecaster.py -i data/particle_concentration_smooth.npz \
+    -o figures/smooth --ckpt checkpoints/autoencoder_smooth.pt \
+    --model gru --conditioned --rollout 16 --tag gru
 
 # Hold out an entire Stokes number to test generalisation:
-python scripts/train_autoencoder.py -i data/smooth.npz --test-stokes 5 --ckpt checkpoints/ae5.pt
+python scripts/train_autoencoder.py -i data/particle_concentration_smooth.npz \
+    -o figures/holdout --test-stokes 5 --ckpt checkpoints/ae_holdoutSt5.pt
+python scripts/train_forecaster.py -i data/particle_concentration_smooth.npz \
+    -o figures/holdout --ckpt checkpoints/ae_holdoutSt5.pt \
+    --rollout 4 --gif-stokes 5 --tag holdoutSt5
 
 # More turbulence-like multi-mode Fourier carrier flow:
-python scripts/generate_dataset.py --flow-type fourier -o data/fourier.npz
+python scripts/generate_dataset.py --flow-type fourier -o data/particle_concentration_fourier.npz
 ```
 
-For a fast end-to-end check first, use the reduced configuration:
+For a fast end-to-end check first, `make smoke` runs every stage on a reduced
+configuration (the grid stays 64 × 64 because the autoencoder expects it):
 
 ```bash
-python scripts/generate_dataset.py --quick -o data/smoke.npz
+python scripts/generate_dataset.py --quick --nx 64 --ny 64 -o data/smoke.npz
 ```
 
 Every script exposes `--help`. Common overrides: `--stokes 1 10`,
-`--seeds 0 1 2`, `--n-particles`, `--nx/--ny`, `--integrator {rk4,euler}`;
-for the ML scripts, `--latent-dim`, `--epochs`, `--test-seed`,
-`--conditioned` (Stokes-conditioned forecasting).
+`--seeds 0 1 2`, `--n-particles`, `--nx/--ny`, `--integrator {rk4,euler}`,
+`--smoothing`, `--flow-type {taylor_green,fourier}`; for the ML scripts,
+`--latent-dim`, `--epochs`, `--test-seed` / `--test-stokes`,
+`--model {mlp,ode,gru}`, `--rollout k` (multi-step training),
+`--conditioned` (Stokes-conditioned forecasting) and `--tag` (suffix for the
+run's output files and checkpoint).
 
 ---
 
@@ -393,8 +419,10 @@ predicted movie of the concentration evolution alongside the truth:
   estimate or more particles would lower it.
 - The autoencoder and forecaster are deliberately **small and CPU-trainable**;
   they are tuned for a clean demonstration rather than squeezing out the last
-  few percent. The forecaster is trained one-step (teacher-forced) and rolled
-  out recursively, so it is not explicitly optimised against multi-step drift.
+  few percent. Forecasters are trained on short roll-out windows (at most 16
+  steps) but evaluated over a 200-step recursive roll-out, so long-horizon
+  drift is only indirectly controlled — the Neural-ODE and GRU are unstable
+  without the longer windows.
 - Explicit integration: very small Stokes numbers (`St ≪ dt`) would become
   stiff; the smallest case here (`St = 0.1`) is comfortably resolved by RK4.
 

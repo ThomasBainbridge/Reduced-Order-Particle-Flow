@@ -1,12 +1,12 @@
-# Core dependencies for the physics + dataset-generation pipeline
-# (Milestone 1). These alone are enough to reproduce every figure and GIF.
+# Core dependencies: physics, dataset generation, baselines, figures and GIFs.
 numpy>=1.21
 scipy>=1.8
 matplotlib>=3.5
 pillow>=9.0
 
-# --- Machine-learning stages (autoencoder, latent forecaster) -------------
-# Uncomment when working on the ML milestones.
+# --- Machine-learning stages (autoencoder, latent forecasters) -------------
+# Install the CPU build separately (`make env` does this for you):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
 # torch>=2.0
 
 # --- Optional HDF5 dataset backend ---------------------------------------

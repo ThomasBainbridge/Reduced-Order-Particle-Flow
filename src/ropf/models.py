@@ -10,6 +10,9 @@
   the Stokes number. Recursively applied, it forecasts the field evolution
   entirely in latent space.
 
+* :class:`NeuralODEForecaster` -- continuous-time latent dynamics
+  ``dz/dt = f(z [, St])``, advanced one snapshot interval by fixed-step RK4.
+
 * :class:`GRUForecaster` -- a gated recurrent one-step map that additionally
   carries a hidden memory ``h`` across the roll-out, so the update can depend
   on the trajectory history rather than the current latent alone.

@@ -25,14 +25,10 @@ jobs:
           pip install -r requirements.txt
           # CPU-only PyTorch for the model tests.
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install pytest
-          pip install -e .
+          pip install -e ".[dev]"
 
       - name: Run test suite
         run: pytest -q
 
-      - name: Smoke-test the dataset pipeline
-        run: |
-          python scripts/generate_dataset.py --quick -o data/smoke.npz
-          python scripts/make_figures.py -i data/smoke.npz -o /tmp/figs
-          python scripts/run_baselines.py -i data/smoke.npz -o /tmp/figs
+      - name: Smoke-test every pipeline stage
+        run: make smoke PYTHON=python

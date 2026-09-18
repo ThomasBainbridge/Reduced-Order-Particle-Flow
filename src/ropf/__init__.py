@@ -34,6 +34,7 @@ from .diagnostics import (
     all_diagnostics,
 )
 from .baselines import (
+    DMDModel,
     PODModel,
     flatten_fields,
     train_test_case_masks,
@@ -69,6 +70,7 @@ __all__ = [
     "peak_concentration",
     "field_variance",
     "all_diagnostics",
+    "DMDModel",
     "PODModel",
     "flatten_fields",
     "train_test_case_masks",

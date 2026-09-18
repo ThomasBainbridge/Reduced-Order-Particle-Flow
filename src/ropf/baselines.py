@@ -11,6 +11,10 @@ These set the bar the later neural models must beat:
   reconstruct. With ``r = 16`` this is the direct linear counterpart of the
   16-dimensional convolutional autoencoder latent space.
 
+* **DMD** -- a linear *forecasting* baseline. Advance the POD coefficients
+  with the best-fit linear map ``a_{t+1} = A a_t + b`` and roll it out
+  recursively: the linear counterpart of the neural latent forecasters.
+
 Also included are simple helpers to flatten fields and split cases into
 train/test by seed (so the POD basis is evaluated on unseen realisations).
 """
@@ -117,6 +121,59 @@ def pod_reconstruction_curve(
         rmse_vals.append(float(rmse(recon, X_test)))
         rel_vals.append(float(np.mean(relative_l2_error(recon, X_test, axis=1))))
     return {"ranks": list(ranks), "rmse": rmse_vals, "relative_l2": rel_vals}
+
+
+# --------------------------------------------------------------------------
+# DMD forecasting baseline
+# --------------------------------------------------------------------------
+@dataclass
+class DMDModel:
+    """Dynamic Mode Decomposition in POD coordinates, with a constant offset.
+
+    Fits the best linear one-step map ``a_{t+1} = A a_t + b`` between
+    consecutive POD-coefficient snapshots by least squares. This is exact DMD
+    projected onto the POD basis; the offset ``b`` absorbs the fact that the
+    coefficients are measured about the training mean, not a fixed point.
+
+    It is the linear counterpart of the neural latent forecasters, as POD is
+    to the autoencoder: the same recursive roll-out, with the latent map
+    restricted to be linear.
+    """
+
+    A_: np.ndarray = None                   # (r, r) linear operator
+    b_: np.ndarray = None                   # (r,) constant offset
+
+    def fit(self, coeff_seqs: np.ndarray) -> "DMDModel":
+        """Fit on POD-coefficient sequences of shape ``(n_cases, n_times, r)``.
+
+        Snapshot pairs never straddle two cases.
+        """
+        seqs = np.asarray(coeff_seqs, dtype=np.float64)
+        X = seqs[:, :-1].reshape(-1, seqs.shape[-1])
+        Y = seqs[:, 1:].reshape(-1, seqs.shape[-1])
+        X1 = np.hstack([X, np.ones((X.shape[0], 1))])
+        W, *_ = np.linalg.lstsq(X1, Y, rcond=None)   # (r + 1, r)
+        self.A_ = W[:-1].T
+        self.b_ = W[-1]
+        return self
+
+    @property
+    def eigenvalues(self) -> np.ndarray:
+        """Discrete-time DMD eigenvalues; ``|lambda| > 1`` modes grow."""
+        return np.linalg.eigvals(self.A_)
+
+    @property
+    def spectral_radius(self) -> float:
+        return float(np.max(np.abs(self.eigenvalues)))
+
+    def rollout(self, a0: np.ndarray, n_steps: int) -> np.ndarray:
+        """Recursive forecast from ``a0`` (..., r); returns (..., n_steps + 1, r)."""
+        a = np.asarray(a0, dtype=np.float64)
+        out = [a]
+        for _ in range(n_steps):
+            a = a @ self.A_.T + self.b_
+            out.append(a)
+        return np.stack(out, axis=-2)
 
 
 # --------------------------------------------------------------------------

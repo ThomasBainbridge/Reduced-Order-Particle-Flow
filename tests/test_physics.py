@@ -15,6 +15,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import dataclasses as _dc  # noqa: E402
 
 from ropf import (  # noqa: E402
+    DMDModel,
     SimConfig,
     build_dataset,
     concentration_field,
@@ -162,6 +163,25 @@ def test_dataset_round_trip_and_metadata():
         assert loaded["seed"].tolist() == [0, 1]
         assert loaded["metadata"]["config"]["flow_type"] == flow_type
         assert expected in loaded["metadata"]["description"]
+
+
+def test_dmd_recovers_a_known_linear_system():
+    rng = np.random.default_rng(5)
+    theta = 0.3
+    A = 0.98 * np.array([[np.cos(theta), -np.sin(theta)],
+                         [np.sin(theta), np.cos(theta)]])
+    b = np.array([0.1, -0.05])
+    seqs = np.empty((3, 40, 2))
+    seqs[:, 0] = rng.normal(size=(3, 2))
+    for t in range(39):
+        seqs[:, t + 1] = seqs[:, t] @ A.T + b
+    dmd = DMDModel().fit(seqs)
+    assert np.allclose(dmd.A_, A, atol=1e-8)
+    assert np.allclose(dmd.b_, b, atol=1e-8)
+    assert np.isclose(dmd.spectral_radius, 0.98)
+    traj = dmd.rollout(seqs[:, 0], 39)
+    assert traj.shape == seqs.shape
+    assert np.allclose(traj, seqs, atol=1e-8)
 
 
 def test_reproducibility():

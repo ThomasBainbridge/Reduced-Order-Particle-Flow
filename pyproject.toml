@@ -7,7 +7,7 @@ name = "ropf"
 version = "0.1.0"
 description = "Reduced-order forecasting of particle-laden flow evolution with PyTorch."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Thomas Bainbridge" }]
 keywords = [

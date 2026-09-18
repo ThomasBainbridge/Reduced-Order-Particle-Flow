@@ -192,6 +192,10 @@ def main():
         "conditioned": args.conditioned, "holdout": data.label,
         "mean_forecast_rmse_final": float(fm[-1]),
         "mean_persistence_rmse_final": float(pm[-1]),
+        "mean_forecast_rmse_time_avg": float(fm.mean()),
+        "mean_persistence_rmse_time_avg": float(pm.mean()),
+        "mean_forecast_rmse_at_t": _at_horizons(horizons, fm),
+        "mean_persistence_rmse_at_t": _at_horizons(horizons, pm),
         "clustering_index_final": {"truth": float(ci_true.mean(0)[-1]),
                                    "forecast": float(ci_pred.mean(0)[-1])},
         "per_stokes": {
@@ -202,6 +206,12 @@ def main():
     }
     (outdir / f"forecast_results{tag}.json").write_text(json.dumps(summary, indent=2))
     print("Done.")
+
+
+def _at_horizons(horizons, curve, marks=(1.0, 5.0, 10.0, 20.0)):
+    """Sample an error-vs-horizon curve at a few fixed horizons (time units)."""
+    return {f"{h:g}": float(curve[int(np.argmin(np.abs(horizons - h)))])
+            for h in marks if h <= horizons[-1] + 1e-9}
 
 
 def _make_forecast_gif(path, truth, pred, times, stokes, fps=20):

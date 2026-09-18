@@ -1,7 +1,7 @@
 # Reduced-Order Forecasting of Particle-Laden Flow Evolution
 
 ![CI](https://github.com/ThomasBainbridge/Reduced-Order-Particle-Flow/actions/workflows/ci.yml/badge.svg)
-![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
 A compact **scientific-machine-learning** testbed that generates a controlled
@@ -40,7 +40,7 @@ prescribed carrier flow
 > reproducible physics.
 
 **Status:** complete end-to-end and then some — physics & dataset generation
-(M1), persistence + POD baselines (M2), a convolutional autoencoder (M3) and a
+(M1), persistence + POD + DMD baselines (M2), a convolutional autoencoder (M3) and a
 latent-space forecaster (M4) are all implemented, tested, and run; plus the
 stretch work: **Neural-ODE** and **GRU** latent forecasters, **Stokes-conditioned** and
 **multi-step (curriculum)** training, **held-out-Stokes-number** generalisation,
@@ -52,19 +52,17 @@ divergence-free **multi-mode Fourier** carrier flow. Headline numbers are in
 
 ## Why this project
 
-I am an MSc Computational Fluid Dynamics student whose thesis applies neural
-networks and Universal Differential Equations to UAV parameter estimation.
-This side project demonstrates the *data-driven reduced-order modelling*
-half of that skill set on a fluids problem with genuinely non-trivial physics:
-**inertial particle clustering (preferential concentration)** in an unsteady
-vortical flow.
-
-It shares a *workflow philosophy* with my earlier OpenFOAM dam-break
-surrogate-modelling project (generate a physics database -> build a
-reduced-order field surrogate) but is deliberately different in physics
-(Lagrangian inertial particles instead of a VOF free surface) and in
-ML focus (latent-space *forecasting* of an evolving field, not static
-regression).
+Particle-laden flows — sprays, dust, sediment, droplets in clouds — are
+expensive to simulate because every particle must be tracked, yet the quantity
+engineers usually need is the evolving **concentration field**, and inertial
+particles do not spread evenly: they are flung out of vortices and cluster
+(*preferential concentration*). This project asks whether that clustered field
+can be **compressed into a handful of latent variables and forecast forward in
+time**, and when a nonlinear learned model actually beats the classical linear
+reduced-order toolkit (POD, DMD) and a persistence baseline. The carrier flow
+is prescribed so that every model is judged against clean, reproducible
+physics, and the results report honestly where the learned models win and
+where they do not.
 
 ---
 
@@ -172,7 +170,7 @@ Generation is fully reproducible from the random seeds.
 │   ├── simulation.py         # run one (St, seed) case → concentration snapshots
 │   ├── dataset.py            # sweep + (de)serialisation to .npz
 │   ├── metrics.py            # RMSE / relative-L2 (shared by baselines & NN)
-│   ├── baselines.py          # persistence + POD/PCA reduced-order model
+│   ├── baselines.py          # persistence, POD/PCA and DMD baselines
 │   ├── diagnostics.py        # clustering index, entropy, peak, variance
 │   ├── models.py             # ConvAutoencoder, LatentForecaster, NeuralODE, GRU (PyTorch)
 │   ├── torch_data.py         # train/test split (seed or Stokes), scaling, tensors
@@ -183,9 +181,11 @@ Generation is fully reproducible from the random seeds.
 │   ├── make_figures.py       # M1: Stokes comparison + clustering diagnostics
 │   ├── make_gifs.py          # M1: particle/concentration evolution GIFs
 │   ├── run_baselines.py      # M2: persistence + POD baselines
+│   ├── run_dmd.py            # M2: DMD linear forecasting baseline
 │   ├── run_diagnostics.py    # physical diagnostics vs time and Stokes number
 │   ├── train_autoencoder.py  # M3: convolutional autoencoder
 │   ├── train_forecaster.py   # M4: latent forecaster (MLP/ODE/GRU) + evaluation
+│   ├── summarise_seeds.py    # mean ± std table of a multi-seed forecaster study
 │   └── compare_roms.py       # linear (POD) vs nonlinear (AE) ROM comparison plot
 ├── tests/                    # test_physics.py (M1/M2) + test_models.py (M3/M4)
 ├── .github/workflows/ci.yml  # pytest + every-stage smoke test on push/PR
@@ -215,7 +215,8 @@ make env        # install deps (incl. CPU PyTorch and pytest)
 make test       # unit tests
 make smoke      # every stage on a tiny dataset (~20 s on a laptop CPU)
 make all        # full pipeline: data -> figures -> baselines -> AE -> forecaster
-make smooth     # conditioned MLP / Neural-ODE / GRU forecasters (RESULTS sec 3)
+make smooth     # DMD + conditioned MLP / Neural-ODE / GRU forecasters (RESULTS sec 3)
+make seeds      # 5 training seeds per neural forecaster vs DMD (RESULTS sec 3)
 make holdout    # hold out St = 5 entirely (Stokes generalisation)
 make fourier    # the linear-vs-nonlinear ROM comparison (RESULTS sec 5.1)
 ```
@@ -223,7 +224,7 @@ make fourier    # the linear-vs-nonlinear ROM comparison (RESULTS sec 5.1)
 The explicit per-stage commands the `make` targets wrap:
 
 ```bash
-# 1. Environment (Python ≥ 3.9)
+# 1. Environment (Python ≥ 3.10)
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 # (optional, makes `import ropf` work anywhere; [dev] adds pytest)
@@ -245,8 +246,9 @@ python scripts/make_gifs.py -o figures --seed 0
 # CPU-only PyTorch is sufficient; the whole pipeline runs on a laptop.
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# 6. M2: persistence + POD/PCA baselines, and physical diagnostics
+# 6. M2: persistence + POD/PCA + DMD baselines, and physical diagnostics
 python scripts/run_baselines.py   -i data/particle_concentration.npz -o figures
+python scripts/run_dmd.py         -i data/particle_concentration.npz -o figures
 python scripts/run_diagnostics.py -i data/particle_concentration.npz -o figures
 
 # 7. M3: train the convolutional autoencoder (latent dim 16)
@@ -258,7 +260,8 @@ python scripts/train_forecaster.py --ckpt checkpoints/autoencoder.pt --epochs 20
 
 ### Stretch experiments
 
-These are what `make smooth`, `make holdout` and `make fourier` run:
+These are what `make smooth`, `make holdout` and `make fourier` run (`make seeds`
+repeats the three smoothed-field forecasters over training seeds 0–4):
 
 ```bash
 # Denoised (Gaussian-KDE) dataset -> ~3x lower reconstruction floor:
@@ -367,17 +370,23 @@ Stokes number** (final-time field RMSE):
 
 The forecaster tracks below persistence across medium-to-long horizons, with
 **St = 1 the hardest regime** (most dynamic field). On the denoised data, a
-**Stokes-conditioned, multi-step-trained** forecaster does substantially better
-— roughly **halving** the persistence error at long horizons:
+**Stokes-conditioned, multi-step-trained** forecaster does substantially better,
+cutting the final-time persistence error by **45 % on average over 5 training
+seeds** (50 % in the run shown):
 
 ![Latent forecast vs persistence (conditioned, smoothed)](docs/figures/forecast_smooth_conditioned.png)
 
-A **GRU forecaster** with a hidden memory carried across the roll-out comes in
-close behind (`1.64e-4` vs the MLP's `1.55e-4` at the final horizon) and is the
-only model that beats persistence in **every** Stokes regime — it wins exactly
-at the near-stationary St = 5 and 10, where the memoryless MLP loses. Like the
-Neural-ODE, it needs a long roll-out curriculum (16-step windows) to stay
-stable; the full story is in [RESULTS.md](RESULTS.md#3-latent-space-forecasting-vs-persistence).
+The linear baseline is much harder to beat than persistence. **DMD** — a
+linear latent map `a_{t+1} = A a_t + b` on 16 POD coefficients, fitted per
+Stokes number — has the **lowest long-horizon and time-averaged error of any
+model**, below every one of 15 neural training runs (conditioned MLP, GRU and
+Neural-ODE, 5 seeds each) at the final time. The neural models win robustly
+only at **short horizons** (`t ≲ 5`), and their long-horizon errors depend
+strongly on the training seed — the GRU's single best run beat persistence in
+every Stokes regime, but only 1 of its 5 seeds does
+([RESULTS §3](RESULTS.md#3-latent-space-forecasting-vs-persistence)):
+
+![DMD forecast vs persistence](docs/figures/dmd_forecast_smooth.png)
 
 Decoding the recursively-forecast latent states back to fields gives a
 predicted movie of the concentration evolution alongside the truth:
@@ -390,7 +399,9 @@ predicted movie of the concentration evolution alongside the truth:
   rolled out recursively over the full horizon on the held-out seed.</em>
 </p>
 
-> All figures/GIFs regenerate from the scripts in minutes; a curated subset is
+> Every dataset, model, figure and GIF regenerates from the scripts
+> (`make all smooth holdout fourier`) in about 35 minutes on a laptop CPU; the
+> datasets are bit-for-bit reproducible from their seeds. A curated subset is
 > committed under `docs/` so the README and [RESULTS.md](RESULTS.md) render on
 > GitHub. The full-resolution outputs land in `figures/` (git-ignored).
 
@@ -400,8 +411,10 @@ predicted movie of the concentration evolution alongside the truth:
 
 - **Two-way particle–flow coupling** (particle feedback on the carrier flow),
   which first requires solving — not prescribing — the carrier flow.
-- A **DMD baseline** for the forecasting comparison (the linear counterpart of
-  the neural latent-dynamics models, as POD is to the autoencoder).
+- A **hybrid latent model**: the per-Stokes DMD operator plus a learned
+  nonlinear correction. DMD wins at long horizons and the neural forecasters
+  at short ones, so learning only the nonlinear residual on top of a stable
+  linear operator is the natural next step.
 
 ---
 
@@ -423,6 +436,11 @@ predicted movie of the concentration evolution alongside the truth:
   steps) but evaluated over a 200-step recursive roll-out, so long-horizon
   drift is only indirectly controlled — the Neural-ODE and GRU are unstable
   without the longer windows.
+- Long-horizon forecast errors of the neural models **depend on the training
+  seed** (final-time RMSE varies by up to ~2× across seeds), so single-run
+  numbers should be read alongside the seed averages in
+  [RESULTS §3](RESULTS.md#3-latent-space-forecasting-vs-persistence). The
+  datasets, POD and DMD are deterministic.
 - Explicit integration: very small Stokes numbers (`St ≪ dt`) would become
   stiff; the smallest case here (`St = 0.1`) is comfortably resolved by RK4.
 

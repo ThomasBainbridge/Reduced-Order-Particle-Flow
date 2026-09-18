@@ -15,7 +15,8 @@ testbed for that physics and asks a data-driven-modelling question:
 
 > Can a low-dimensional learned representation **reconstruct and forecast** the
 > evolving particle-concentration field, and when does a **nonlinear** model
-> (autoencoder) actually beat a **linear** one (POD/PCA)?
+> (autoencoder, neural latent dynamics) actually beat a **linear** one
+> (POD/PCA, DMD)?
 
 The carrier flow is prescribed analytically (a Taylor–Green vortex, and a
 divergence-free multi-mode Fourier flow), so the data-generation and
@@ -62,19 +63,27 @@ POD is unbeatable, exactly as linear theory predicts. The honest conclusion: a
 nonlinear ROM is not automatically better; it earns its keep only where the
 physics is multiscale.
 
-### 3. Latent-space forecasting beats persistence
+### 3. Forecasting: learned models beat persistence — a linear DMD beats them at long range
 
 A residual model on the frozen latent space, `z_{t+1} = z_t + f(z_t, St)`,
-forecasts the field evolution and is rolled out recursively. The best variant —
-**Stokes-conditioned, multi-step (curriculum) trained** — **halves the
-persistence-baseline error**, with a final-time field RMSE of `1.51e-4`
-(50 % below persistence) on the denoised data. A continuous-time **Neural-ODE**
-latent model `dz/dt = f(z, St)` is also competitive (`2.32e-4`) once conditioned
-and multi-step-trained, and a **GRU** with a hidden memory carried across the
-roll-out (`1.64e-4`, trained on 16-step windows) is the only variant that beats
-persistence in *every* Stokes regime — its memory wins the near-stationary
-high-St cases where the memoryless MLP loses. Persistence only wins at very
-short horizons.
+forecasts the field evolution and is rolled out recursively. The best neural
+variant — **Stokes-conditioned, multi-step (curriculum) trained** — cuts the
+final-time persistence error by **45 % on average over 5 training seeds**
+(`1.66e-4` vs `3.02e-4` on the denoised data). A continuous-time
+**Neural-ODE** `dz/dt = f(z, St)` and a **GRU** with a hidden memory are also
+ahead of persistence on average, but need long roll-out curricula to be stable
+at all, and are more seed-sensitive.
+
+The sharper test is the **linear** counterpart: **DMD**, a linear map
+`a_{t+1} = A a_t + b` on 16 POD coefficients fitted per Stokes number. It has
+no training randomness, and it beats **all 15 neural training runs** at the
+final horizon (`1.19e-4`) and on time-averaged error. The neural models win
+robustly only at **short horizons** (`t ≲ 5`, every seed ahead of DMD). The
+same lesson as §2 applies: a learned nonlinear model has to earn its keep
+against the right linear baseline, and here it does so only over short
+horizons.
+
+![DMD forecast vs persistence](docs/figures/dmd_forecast_smooth.png)
 
 ### 4. Generalisation across Stokes number
 
@@ -91,6 +100,10 @@ generalises for free and what needs to be told about the regime.
   proof-of-concept, not a turbulent particle-laden DNS.
 - Particles are **one-way coupled** (the flow moves particles; particles do not
   feed back on the flow).
+- Neural forecasters' long-horizon errors **depend on the training seed**
+  (up to ~2× across 5 seeds), so they are reported as seed averages; a
+  from-scratch re-run reproduces the datasets, POD, DMD and autoencoders to
+  within 1 %.
 - On the **raw** histogram fields, no low-rank model can beat the per-cell
   Poisson **shot-noise floor** (~`2.2e-4`); the ROM gains require the denoised
   representation.
@@ -100,9 +113,10 @@ generalises for free and what needs to be told about the regime.
 ## Reproduce
 
 ```bash
-make env        # install deps (incl. CPU PyTorch)
+make env        # install deps (incl. CPU PyTorch and pytest)
 make all        # full pipeline: data -> figures -> baselines -> AE -> forecaster
-make smooth     # the conditioned MLP / Neural-ODE / GRU forecasting results
+make smooth     # the DMD and conditioned MLP / Neural-ODE / GRU forecasting results
+make seeds      # seed-to-seed spread of the neural forecasters vs DMD
 make holdout    # the unseen-Stokes-number generalisation test
 make fourier    # the linear-vs-nonlinear ROM comparison above
 ```

@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this project, please cite it."
+title: "Reduced-Order Forecasting of Particle-Laden Flow Evolution"
+authors:
+  - family-names: Bainbridge
+    given-names: Thomas
+type: software
+license: MIT
+repository-code: "https://github.com/ThomasBainbridge/Reduced-Order-Particle-Flow"
+keywords:
+  - computational fluid dynamics
+  - inertial particles
+  - preferential concentration
+  - reduced-order modelling
+  - dynamic mode decomposition
+  - scientific machine learning
+  - PyTorch
+abstract: >
+  A controlled, reproducible testbed for reduced-order modelling of
+  particle-laden flow. Inertial particles in a prescribed unsteady vortical
+  flow are converted into Eulerian concentration fields, compressed with POD
+  and a convolutional autoencoder, and forecast in latent space with DMD and
+  neural (MLP, Neural-ODE, GRU) models. Each model is compared against
+  persistence and against the others, with results reported over training
+  seeds and checked by a from-scratch re-run.

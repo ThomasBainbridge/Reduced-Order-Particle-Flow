@@ -21,16 +21,13 @@ Eulerian concentration fields, and trains reduced-order PyTorch models to
 > **Two-page summary for a quick read: [REPORT.md](REPORT.md).**
 > **Full results write-up with figures: [RESULTS.md](RESULTS.md).**
 
-The full intended workflow is:
-
 ```
-prescribed carrier flow
-   -> inertial particle dynamics
-      -> Eulerian concentration fields
-         -> reduced-order representation (POD / autoencoder)
-            -> neural reconstruction
-               -> latent-space forecasting
-                  -> physically interpretable error analysis
+ prescribed carrier flow (Taylor–Green / multi-mode Fourier)
+   -> inertial particle dynamics (Stokes drag, RK4)
+      -> Eulerian concentration fields (64x64)
+         -> reduced-order representation (POD / convolutional autoencoder)
+            -> latent-space forecasting (DMD / MLP / Neural-ODE / GRU)
+               -> physically interpretable error analysis
 ```
 
 > This is **not** a high-fidelity turbulent particle-laden DNS. It is a
@@ -66,7 +63,21 @@ where they do not.
 
 ---
 
-## Physics
+## Problem
+
+Inertial particles in a vortical flow do not follow the fluid: they are flung
+out of vortex cores and accumulate along the strain regions between them
+(*preferential concentration*). The goal is to compress the resulting
+concentration field into a small latent space, forecast its evolution there,
+and test both on unseen realisations and unseen Stokes numbers.
+
+**Carrier flow:** prescribed, unsteady and divergence-free (Taylor–Green
+vortex; multi-mode Fourier option), periodic `[0, 2π]²`.
+**Particles:** one-way-coupled point particles with linear Stokes drag, RK4,
+`St = 0.1–10`.
+**Fields:** normalised 64 × 64 concentration histograms, 201 snapshots per case.
+
+## Governing equations
 
 ### Carrier flow (prescribed, divergence-free)
 
@@ -196,7 +207,7 @@ Generation is fully reproducible from the random seeds.
 ├── Makefile                  # one-command reproduction of every result
 ├── REPORT.md, RESULTS.md     # two-page summary and full results write-up
 ├── pyproject.toml            # packaging + optional [ml]/[hdf5]/[dev] extras
-└── requirements.txt
+└── requirements.txt          # (+ requirements-lock.txt: exact tested versions)
 ```
 
 The code is intentionally script-driven (no notebook-driven workflow), modular,
@@ -407,14 +418,15 @@ predicted movie of the concentration evolution alongside the truth:
 
 ---
 
-## Future work
+## Future Work
 
-- **Two-way particle–flow coupling** (particle feedback on the carrier flow),
-  which first requires solving — not prescribing — the carrier flow.
-- A **hybrid latent model**: the per-Stokes DMD operator plus a learned
-  nonlinear correction. DMD wins at long horizons and the neural forecasters
-  at short ones, so learning only the nonlinear residual on top of a stable
-  linear operator is the natural next step.
+The findings point to two concrete directions. First, a **hybrid latent
+model**: the per-Stokes DMD operator plus a learned nonlinear correction. DMD
+wins at long horizons and the neural forecasters at short ones, so learning
+only the nonlinear residual on top of a stable linear operator is the natural
+next step. Second, **two-way particle–flow coupling** (particle feedback on
+the carrier flow), which first requires solving the carrier flow rather than
+prescribing it.
 
 ---
 
